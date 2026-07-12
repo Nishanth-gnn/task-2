@@ -4,42 +4,152 @@ const { LearningInstancePage } = require('../pages/LearningInstancePage');
 const { FieldRulesPage } = require('../pages/FieldRulesPage');
 const constants = require('../utils/constants');
 
-test.describe('Automation Anywhere - Learning Instance Creation', () => {
-    test('Task 2 Workflow', async ({ page }) => {
-        const loginPage = new LoginPage(page);
-        const liPage = new LearningInstancePage(page);
-        const rulesPage = new FieldRulesPage(page);
+// ─── Shared state across steps ────────────────────────────────────────────────
+let loginPage;
+let liPage;
+let rulesPage;
+const instanceName = constants.LEARNING_INSTANCE.NAME + '_' + Date.now();
 
-        // STEP 1: Login
+// ─── Use Case: Authentication ──────────────────────────────────────────────────
+test.describe('Authentication', () => {
+    test('should successfully log in with valid credentials', async ({ page }) => {
+        loginPage = new LoginPage(page);
+        liPage = new LearningInstancePage(page);
+        rulesPage = new FieldRulesPage(page);
+
         await loginPage.navigate(constants.URLS.LOGIN);
         await loginPage.login(process.env.AA_USERNAME, process.env.AA_PASSWORD);
+    });
+});
 
-        // STEP 2: Navigate to AI -> Document Automation
+// ─── Use Case: Navigation – Document Automation ────────────────────────────────
+test.describe('Navigation - Document Automation', () => {
+    test('should navigate to Learning Instances section under AI > Document Automation', async ({ page }) => {
+        loginPage = new LoginPage(page);
+        liPage = new LearningInstancePage(page);
+        rulesPage = new FieldRulesPage(page);
+
+        await loginPage.navigate(constants.URLS.LOGIN);
+        await loginPage.login(process.env.AA_USERNAME, process.env.AA_PASSWORD);
+        await liPage.navigateToLearningInstances();
+    });
+});
+
+// ─── Use Case: Learning Instance – Full Creation Workflow ──────────────────────
+test.describe('Learning Instance - Creation and Configuration', () => {
+    test('should create a new Learning Instance with name, document type, and description', async ({ page }) => {
+        loginPage = new LoginPage(page);
+        liPage = new LearningInstancePage(page);
+        rulesPage = new FieldRulesPage(page);
+
+        // Pre-requisite: log in and navigate
+        await loginPage.navigate(constants.URLS.LOGIN);
+        await loginPage.login(process.env.AA_USERNAME, process.env.AA_PASSWORD);
         await liPage.navigateToLearningInstances();
 
-        // STEP 3: Click Create Instance, fill details, click Next
+        // Open creation dialog and fill basic details
         await liPage.createNew();
-        const instanceName = constants.LEARNING_INSTANCE.NAME + '_' + Date.now();
+        await liPage.fillDetails(
+            constants.LEARNING_INSTANCE.DOCUMENT_TYPE,
+            instanceName,
+            constants.LEARNING_INSTANCE.DESCRIPTION
+        );
+    });
+
+    test('should add form fields (Text and Date types) to the Learning Instance', async ({ page }) => {
+        loginPage = new LoginPage(page);
+        liPage = new LearningInstancePage(page);
+        rulesPage = new FieldRulesPage(page);
+
+        // Pre-requisite: log in, navigate, and fill basic details
+        await loginPage.navigate(constants.URLS.LOGIN);
+        await loginPage.login(process.env.AA_USERNAME, process.env.AA_PASSWORD);
+        await liPage.navigateToLearningInstances();
+        await liPage.createNew();
         await liPage.fillDetails(
             constants.LEARNING_INSTANCE.DOCUMENT_TYPE,
             instanceName,
             constants.LEARNING_INSTANCE.DESCRIPTION
         );
 
-        // STEP 4: Create Form Fields
+        // Add form fields
+        await liPage.addFormFields(constants.FORM_FIELDS);
+    });
+
+    test('should add table fields (Number type) to the Learning Instance', async ({ page }) => {
+        loginPage = new LoginPage(page);
+        liPage = new LearningInstancePage(page);
+        rulesPage = new FieldRulesPage(page);
+
+        // Pre-requisite: log in, navigate, fill details, and add form fields
+        await loginPage.navigate(constants.URLS.LOGIN);
+        await loginPage.login(process.env.AA_USERNAME, process.env.AA_PASSWORD);
+        await liPage.navigateToLearningInstances();
+        await liPage.createNew();
+        await liPage.fillDetails(
+            constants.LEARNING_INSTANCE.DOCUMENT_TYPE,
+            instanceName,
+            constants.LEARNING_INSTANCE.DESCRIPTION
+        );
         await liPage.addFormFields(constants.FORM_FIELDS);
 
-        // STEP 5: Create Table Fields
+        // Add table fields
+        await liPage.addTableFields(constants.TABLE_FIELDS);
+    });
+});
+
+// ─── Use Case: Field Rules ─────────────────────────────────────────────────────
+test.describe('Field Rules', () => {
+    test('should create a validation rule for the invoice_number field with Show Error action', async ({ page }) => {
+        loginPage = new LoginPage(page);
+        liPage = new LearningInstancePage(page);
+        rulesPage = new FieldRulesPage(page);
+
+        // Pre-requisite: complete all prior steps
+        await loginPage.navigate(constants.URLS.LOGIN);
+        await loginPage.login(process.env.AA_USERNAME, process.env.AA_PASSWORD);
+        await liPage.navigateToLearningInstances();
+        await liPage.createNew();
+        await liPage.fillDetails(
+            constants.LEARNING_INSTANCE.DOCUMENT_TYPE,
+            instanceName,
+            constants.LEARNING_INSTANCE.DESCRIPTION
+        );
+        await liPage.addFormFields(constants.FORM_FIELDS);
         await liPage.addTableFields(constants.TABLE_FIELDS);
 
-        // STEP 6: Navigate to Field Rules and Create Rule
+        // Open field rules and create rule
+        await liPage.openFieldRulesFor(constants.RULES[0].field);
+        await rulesPage.createRule(constants.RULES[0]);
+    });
+});
+
+// ─── Use Case: Learning Instance – Save & Persist ─────────────────────────────
+test.describe('Learning Instance - Save and Persist', () => {
+    test('should save and successfully persist the fully configured Learning Instance', async ({ page }) => {
+        loginPage = new LoginPage(page);
+        liPage = new LearningInstancePage(page);
+        rulesPage = new FieldRulesPage(page);
+
+        // Pre-requisite: complete entire workflow
+        await loginPage.navigate(constants.URLS.LOGIN);
+        await loginPage.login(process.env.AA_USERNAME, process.env.AA_PASSWORD);
+        await liPage.navigateToLearningInstances();
+        await liPage.createNew();
+        await liPage.fillDetails(
+            constants.LEARNING_INSTANCE.DOCUMENT_TYPE,
+            instanceName,
+            constants.LEARNING_INSTANCE.DESCRIPTION
+        );
+        await liPage.addFormFields(constants.FORM_FIELDS);
+        await liPage.addTableFields(constants.TABLE_FIELDS);
         await liPage.openFieldRulesFor(constants.RULES[0].field);
         await rulesPage.createRule(constants.RULES[0]);
 
-        // STEP 7: Click Create
+        // Save the Learning Instance
         await liPage.saveLearningInstance();
 
-        // STEP 8: End
-        await page.waitForTimeout(10000); // just to ensure it completes and we can see it
+        // Allow time for the save to complete and confirm in the UI
+        await page.waitForTimeout(10000);
     });
 });
